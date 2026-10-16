@@ -119,6 +119,8 @@ apply the filters. 7. Write the reports.
   `__pycache__/`. Generated data contains other players' names and account ids and is never
   committed.
 - The token is never printed or logged.
+- Test fixtures keep the real API response structure, but other players' names and account
+  ids are replaced with made-up values before they are committed.
 - Public repository `Misezicedark/dota-winrates`, MIT licence, commits authored with the
   account's GitHub noreply address. The repository is created only after the owner has seen
   the exact list of files to be published.
