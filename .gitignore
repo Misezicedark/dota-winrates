@@ -1,0 +1,16 @@
+# Secrets
+.stratz_token
+
+# Generated data: contains other players' names and account ids
+cache/
+output/
+*.csv
+*.xlsx
+raport*.txt
+~$*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
