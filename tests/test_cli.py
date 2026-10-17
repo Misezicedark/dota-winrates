@@ -51,10 +51,11 @@ class FakeOpenDota:
 
 
 class FakeStratz:
-    def __init__(self, party_sizes=None, totals=None, error=None):
+    def __init__(self, party_sizes=None, totals=None, error=None, totals_error=None):
         self.party_sizes = party_sizes or {}
         self.totals = totals or {}
         self.error = error
+        self.totals_error = totals_error
         self.totals_requests = []
 
     def get_party_size(self, match_id, account_id):
@@ -64,6 +65,8 @@ class FakeStratz:
 
     def get_totals(self, account_ids):
         self.totals_requests.append(list(account_ids))
+        if self.totals_error:
+            raise self.totals_error
         return {account_id: self.totals[account_id] for account_id in account_ids if account_id in self.totals}
 
 
@@ -79,7 +82,9 @@ def scenario():
     return FakeOpenDota(entries, details, win_loss), FakeStratz(party_sizes={13: 1}, totals={25: (505, 1000)})
 
 
-class CliTest(unittest.TestCase):
+class CliTestCase(unittest.TestCase):
+    """Temporary directories and a helper that runs the CLI against fake clients."""
+
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.directory = Path(self.temporary_directory.name)
@@ -106,6 +111,8 @@ class CliTest(unittest.TestCase):
         with open(self.directory / "output" / "matches.csv", encoding="utf-8-sig", newline="") as csv_file:
             return {int(row["match_id"]): row for row in csv.DictReader(csv_file)}
 
+
+class CliTest(CliTestCase):
     def test_missing_token_stops_before_any_request(self):
         def refuse(*arguments, **options):
             raise AssertionError("no client may be created without a token")
@@ -184,6 +191,53 @@ class CliTest(unittest.TestCase):
         opendota.win_loss_by_account[99] = EVEN
         self.run_cli(opendota, stratz)
         self.assertEqual(self.matches_csv()[11]["exclusion_reason"], "not loaded")
+
+
+class InterruptTest(CliTestCase):
+    """Ctrl+C at any stage writes the reports for what was collected so far."""
+
+    def test_interrupt_while_asking_stratz_for_totals_still_writes_reports(self):
+        opendota, stratz = scenario()
+        stratz.totals_error = KeyboardInterrupt()
+        code, _ = self.run_cli(opendota, stratz)
+        self.assertEqual(code, 0)
+        self.assertEqual(self.matches_csv()[11]["exclusion_reason"], "")
+
+    def test_interrupt_while_resolving_party_sizes_still_writes_reports(self):
+        opendota, _ = scenario()
+        code, _ = self.run_cli(opendota, FakeStratz(error=KeyboardInterrupt()))
+        self.assertEqual(code, 0)
+        reasons = {match_id: row["exclusion_reason"] for match_id, row in self.matches_csv().items()}
+        self.assertEqual(reasons[12], "party")
+        self.assertEqual(reasons[13], "party unknown")
+        self.assertEqual(reasons[11], "not loaded")
+
+    def test_interrupt_while_loading_matches_skips_the_remaining_steps(self):
+        opendota, stratz = scenario()
+        original_get_match = opendota.get_match
+
+        def interrupt_on_second_match(match_id):
+            if match_id == 13:
+                raise KeyboardInterrupt()
+            return original_get_match(match_id)
+
+        opendota.get_match = interrupt_on_second_match
+        code, _ = self.run_cli(opendota, stratz)
+        self.assertEqual(code, 0)
+        self.assertEqual(stratz.totals_requests, [])
+        self.assertEqual(self.matches_csv()[11]["exclusion_reason"], "")
+        self.assertEqual(self.matches_csv()[13]["exclusion_reason"], "not loaded")
+
+    def test_interrupt_before_any_match_is_listed_exits_quietly(self):
+        opendota, stratz = scenario()
+
+        def interrupt(account_id, limit):
+            raise KeyboardInterrupt()
+
+        opendota.get_recent_ranked_matches = interrupt
+        code, _ = self.run_cli(opendota, stratz)
+        self.assertEqual(code, 130)
+        self.assertFalse((self.directory / "output" / "matches.csv").exists())
 
 
 class ArgumentTest(unittest.TestCase):

@@ -11,6 +11,9 @@ from .stratz import StratzAuthenticationError, StratzClient, StratzError
 
 MAX_CONSECUTIVE_FAILED_MATCHES = 3
 SECONDS_PER_HOUR = 60 * 60
+INTERRUPTED_MESSAGE = "\nInterrupted. Skipping the remaining steps and writing the results collected so far."
+# Exit code shells use for a program stopped with Ctrl+C.
+INTERRUPTED_EXIT_CODE = 130
 
 
 def positive_integer(text: str) -> int:
@@ -59,12 +62,18 @@ def collect_records(arguments, opendota_client, stratz_client, log) -> list[anal
     hero_names = opendota_client.get_hero_names()
     entries = opendota_client.get_recent_ranked_matches(arguments.account_id, arguments.matches)
     log(f"{len(entries)} ranked matches found.")
+    # Ctrl+C after this point skips the remaining requests; whatever was collected is still reported.
+    interrupted = False
     records = []
     for position, entry in enumerate(entries):
         record = analysis.record_from_list_entry(entry, position, hero_names)
         stratz_size = None
-        if record.party_size is None:
-            stratz_size = stratz_party_size(stratz_client, record.match_id, arguments.account_id, log)
+        if record.party_size is None and not interrupted:
+            try:
+                stratz_size = stratz_party_size(stratz_client, record.match_id, arguments.account_id, log)
+            except KeyboardInterrupt:
+                interrupted = True
+                log(INTERRUPTED_MESSAGE)
         records.append(analysis.resolve_party(record, stratz_size))
 
     solo_records = [record for record in records if record.included]
@@ -72,7 +81,7 @@ def collect_records(arguments, opendota_client, stratz_client, log) -> list[anal
     ranked_win_loss = {}
     consecutive_failures = 0
     try:
-        for index, record in enumerate(solo_records, start=1):
+        for index, record in enumerate([] if interrupted else solo_records, start=1):
             log(f"[{index}/{len(solo_records)}] match {record.match_id}")
             try:
                 details = opendota_client.get_match(record.match_id)
@@ -91,11 +100,12 @@ def collect_records(arguments, opendota_client, stratz_client, log) -> list[anal
             consecutive_failures = 0
             details_by_match[record.match_id] = details
     except KeyboardInterrupt:
-        log("\nInterrupted. Writing the results collected so far.")
+        interrupted = True
+        log(INTERRUPTED_MESSAGE)
 
     hidden_accounts = [account for account, win_loss in ranked_win_loss.items() if analysis.needs_stratz_lookup(win_loss)]
     stratz_totals = {}
-    if hidden_accounts:
+    if hidden_accounts and not interrupted:
         log(f"Asking Stratz about {len(hidden_accounts)} players with hidden match history.")
         try:
             stratz_totals = stratz_client.get_totals(hidden_accounts)
@@ -103,6 +113,8 @@ def collect_records(arguments, opendota_client, stratz_client, log) -> list[anal
             raise
         except StratzError as error:
             log(f"  ! Stratz totals unavailable, hidden players stay unknown: {error}")
+        except KeyboardInterrupt:
+            log(INTERRUPTED_MESSAGE)
 
     evaluated = []
     for record in records:
@@ -142,6 +154,9 @@ def main(argv=None, environment=None, token_file=None, opendota_factory=OpenDota
     except OpenDotaError as error:
         log(f"Could not load the match list from OpenDota: {error}")
         return 1
+    except KeyboardInterrupt:
+        log("\nInterrupted before any match was loaded.")
+        return INTERRUPTED_EXIT_CODE
     if not records:
         log("No ranked matches found for this account. If the id is right, its match data is probably private "
             "(Dota 2 setting 'Expose Public Match Data').")
