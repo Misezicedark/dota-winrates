@@ -14,6 +14,17 @@ SECONDS_PER_HOUR = 60 * 60
 INTERRUPTED_MESSAGE = "\nInterrupted. Skipping the remaining steps and writing the results collected so far."
 # Exit code shells use for a program stopped with Ctrl+C.
 INTERRUPTED_EXIT_CODE = 130
+# Steam64 ids (steamcommunity.com/profiles/<id>) are the Dota account id plus this offset.
+STEAM64_OFFSET = 76561197960265728
+
+
+def account_id_argument(text: str) -> int:
+    value = int(text)
+    if value >= STEAM64_OFFSET:
+        value -= STEAM64_OFFSET
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be a Dota account id or a Steam64 id")
+    return value
 
 
 def positive_integer(text: str) -> int:
@@ -35,8 +46,9 @@ def parse_arguments(argv) -> argparse.Namespace:
         prog="dota-winrates",
         description="How often your team had the higher average winrate in your solo ranked Dota 2 matches.",
     )
-    parser.add_argument("--account-id", type=int, required=True,
-                        help="your Dota 2 account id (the number in your OpenDota or Dotabuff profile link)")
+    parser.add_argument("--account-id", type=account_id_argument, required=True,
+                        help="your Dota 2 account id (the number in your OpenDota or Dotabuff profile link); "
+                             "a Steam64 id is converted")
     parser.add_argument("--matches", type=positive_integer, default=100, help="how many recent ranked matches to fetch (default 100)")
     parser.add_argument("--min-difference", type=non_negative_number, default=1.0,
                         help="leave out matches whose team averages differ by less than this many percentage points (default 1.0)")

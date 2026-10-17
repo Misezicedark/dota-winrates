@@ -60,7 +60,8 @@ python -m dota_winrates --account-id 103093152
 python -m dota_winrates --account-id 103093152 --matches 400 --excel
 ```
 
-Your account id is the number in your OpenDota or Dotabuff profile link.
+Your account id is the number in your OpenDota or Dotabuff profile link. The longer Steam64 id from a
+`steamcommunity.com/profiles/…` link works too; it is converted.
 
 | Option | Default | Meaning |
 |---|---|---|

@@ -264,6 +264,13 @@ class ArgumentTest(unittest.TestCase):
         arguments = cli.parse_arguments(["--account-id", "1"])
         self.assertEqual((arguments.matches, arguments.min_difference, arguments.refresh_hours, arguments.excel), (100, 1.0, 24.0, False))
 
+    def test_steam64_id_is_converted_to_the_dota_account_id(self):
+        # The number in a steamcommunity.com/profiles/ link is a Steam64 id, not a Dota account id.
+        self.assertEqual(cli.parse_arguments(["--account-id", "76561198063358880"]).account_id, 103093152)
+
+    def test_dota_account_id_is_kept_as_given(self):
+        self.assertEqual(cli.parse_arguments(["--account-id", "103093152"]).account_id, 103093152)
+
     def test_account_id_is_required(self):
         with self.assertRaises(SystemExit):
             cli.parse_arguments([])
