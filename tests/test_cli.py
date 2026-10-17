@@ -164,6 +164,25 @@ class CliTest(CliTestCase):
             sources = [row["source"] for row in csv.DictReader(csv_file) if row["match_id"] == "13"]
         self.assertEqual(sources.count("stratz_total"), 1)
 
+    def test_reports_are_saved_before_the_summary_is_printed(self):
+        class BrokenOutput:
+            def write(self, text):
+                raise UnicodeEncodeError("cp1252", text, 0, 1, "character maps to <undefined>")
+
+            def flush(self):
+                pass
+
+        opendota, stratz = scenario()
+        with self.assertRaises(UnicodeEncodeError):
+            cli.main(["--account-id", str(ME), "--output-directory", str(self.directory / "output"),
+                      "--cache-directory", str(self.directory / "cache")],
+                     environment={"STRATZ_TOKEN": "test-token"}, token_file=self.directory / ".stratz_token",
+                     opendota_factory=lambda cache_directory, **options: opendota,
+                     stratz_factory=lambda token, cache_directory, **options: stratz,
+                     out=BrokenOutput(), log=self.messages.append)
+        self.assertTrue((self.directory / "output" / "matches.csv").exists())
+        self.assertTrue((self.directory / "output" / "players.csv").exists())
+
     def test_empty_match_list_explains_privacy(self):
         code, _ = self.run_cli(FakeOpenDota([], {}, {}), FakeStratz())
         self.assertEqual(code, 1)

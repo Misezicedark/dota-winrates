@@ -109,7 +109,8 @@ def print_report(records: list[analysis.MatchRecord], min_difference: float, out
         label = "Total" if summary.series is None else str(summary.series)
         period = ""
         if summary.first_start_time is not None:
-            period = f"{format_date(summary.first_start_time)[:10]} → {format_date(summary.last_start_time)[:10]}"
+            # Plain ASCII: redirected output on Windows is cp1252, which has no arrow.
+            period = f"{format_date(summary.first_start_time)[:10]} to {format_date(summary.last_start_time)[:10]}"
         we_higher = f"{summary.we_higher} ({share(summary.we_higher_wins, summary.we_higher)})"
         they_higher = f"{summary.they_higher} ({share(summary.they_higher_wins, summary.they_higher)})"
         write(f"  {label:<8} {period:<25} {summary.kept:>5} {we_higher:>17} {they_higher:>19}")

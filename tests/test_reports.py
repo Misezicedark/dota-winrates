@@ -96,6 +96,12 @@ class TerminalReportTest(unittest.TestCase):
     def test_report_ends_with_the_headline_share(self):
         self.assertIn("The enemy team had the higher average in 0 of 1 kept matches (0%).", self.render([kept_match()]))
 
+    def test_report_fits_a_windows_console_encoding(self):
+        # Redirected output on Windows uses cp1252, which has no arrows or other symbols.
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        reports.print_report([kept_match(), party_match()], 1.0, out=stream)
+        stream.flush()
+
     def test_report_without_kept_matches_has_no_headline(self):
         self.assertNotIn("The enemy team had", self.render([party_match()]))
 

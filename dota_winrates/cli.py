@@ -162,18 +162,24 @@ def main(argv=None, environment=None, token_file=None, opendota_factory=OpenDota
             "(Dota 2 setting 'Expose Public Match Data').")
         return 1
 
-    reports.print_report(records, arguments.min_difference, out=out)
+    # Files first, so a console that cannot print the summary does not cost the whole run.
     matches_path = arguments.output_directory / "matches.csv"
     players_path = arguments.output_directory / "players.csv"
     reports.write_csv(matches_path, reports.MATCH_COLUMNS, reports.match_rows(records))
     reports.write_csv(players_path, reports.PLAYER_COLUMNS, reports.player_rows(records))
-    print(f"\nSaved {matches_path} and {players_path}", file=out)
-    if arguments.excel:
-        excel_path = arguments.output_directory / "report.xlsx"
+    excel_path = arguments.output_directory / "report.xlsx" if arguments.excel else None
+    excel_error = None
+    if excel_path is not None:
         try:
             reports.write_excel(records, excel_path, arguments.min_difference)
         except reports.ExcelUnavailableError as error:
-            log(str(error))
-            return 1
+            excel_error = error
+
+    reports.print_report(records, arguments.min_difference, out=out)
+    print(f"\nSaved {matches_path} and {players_path}", file=out)
+    if excel_error is not None:
+        log(str(excel_error))
+        return 1
+    if excel_path is not None:
         print(f"Saved {excel_path}", file=out)
     return 0
