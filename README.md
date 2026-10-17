@@ -18,8 +18,8 @@ Matches
 
 Kept: solo matches, both teams with a known winrate, difference of at least 1 pp
   Series   Period                     Kept   We higher (won)   They higher (won)
-  1        2026-09-27 → 2026-10-17      18           3 (33%)            15 (20%)
-  Total    2026-09-27 → 2026-10-17      18           3 (33%)            15 (20%)
+  1        2026-09-27 to 2026-10-17     18           3 (33%)            15 (20%)
+  Total    2026-09-27 to 2026-10-17     18           3 (33%)            15 (20%)
 
 The enemy team had the higher average in 15 of 18 kept matches (83%).
 ```
