@@ -4,6 +4,7 @@ import json
 import ssl
 import time
 import urllib.error
+from http.client import HTTPException
 from pathlib import Path
 
 from . import http
@@ -89,10 +90,14 @@ class OpenDotaClient:
                 if error.code == TOO_MANY_REQUESTS:
                     # The limit is counted per minute, so shorter waits just hit it again.
                     wait_seconds = RATE_LIMIT_WAIT_SECONDS
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
-                if isinstance(getattr(error, "reason", None), ssl.SSLCertVerificationError):
-                    raise OpenDotaError(f"{url}: certificate verification failed ({error.reason})") from error
-                failure = str(error)
+            # urllib wraps connection errors in URLError, but not those raised while reading the
+            # response (RemoteDisconnected, ConnectionResetError, IncompleteRead), so OSError and
+            # HTTPException are caught as well.
+            except (urllib.error.URLError, OSError, HTTPException, json.JSONDecodeError) as error:
+                certificate_error = getattr(error, "reason", error)
+                if isinstance(certificate_error, ssl.SSLCertVerificationError):
+                    raise OpenDotaError(f"{url}: certificate verification failed ({certificate_error})") from error
+                failure = str(error) or type(error).__name__
             if attempt < self.max_attempts:
                 self.log(f"  ! {failure} for {url}, retrying in {wait_seconds:.0f}s")
                 self.sleep(wait_seconds)

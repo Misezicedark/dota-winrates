@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from http.client import RemoteDisconnected
 from pathlib import Path
 
 from fakes import FakeClock, FakePoster, http_error
@@ -141,6 +142,11 @@ class StratzClientTest(unittest.TestCase):
         poster = FakePoster([http_error("https://api.stratz.com/graphql", 429), totals_response((1, 10, 20))], clock=self.clock)
         self.assertEqual(self.make_client(poster).get_totals([1]), {1: (10, 20)})
         self.assertGreaterEqual(poster.call_times[1] - poster.call_times[0], 60.0)
+
+    def test_retries_after_the_server_drops_the_connection(self):
+        poster = FakePoster([RemoteDisconnected("Remote end closed connection"), totals_response((1, 10, 20))])
+        self.assertEqual(self.make_client(poster).get_totals([1]), {1: (10, 20)})
+        self.assertEqual(len(poster.calls), 2)
 
     def test_graphql_error_is_not_retried(self):
         poster = FakePoster([{"errors": [{"message": "You have surpassed the maximum take value of : 5"}], "data": None}])

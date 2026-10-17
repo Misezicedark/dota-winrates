@@ -2,6 +2,7 @@ import ssl
 import tempfile
 import unittest
 import urllib.error
+from http.client import IncompleteRead, RemoteDisconnected
 from pathlib import Path
 
 from fakes import FakeClock, FakeFetcher, http_error
@@ -141,6 +142,21 @@ class OpenDotaClientTest(unittest.TestCase):
         fetcher = FakeFetcher({
             RANKED_WIN_LOSS_URL: [urllib.error.URLError("connection reset"), {"win": 7, "lose": 3}]
         })
+        self.assertEqual(self.make_client(fetcher).get_ranked_win_loss(123), (7, 3))
+
+    def test_retries_after_the_server_drops_the_connection(self):
+        fetcher = FakeFetcher({
+            RANKED_WIN_LOSS_URL: [RemoteDisconnected("Remote end closed connection"), {"win": 7, "lose": 3}]
+        })
+        self.assertEqual(self.make_client(fetcher).get_ranked_win_loss(123), (7, 3))
+        self.assertEqual(len(fetcher.requested_urls), 2)
+
+    def test_retries_after_connection_reset_while_reading(self):
+        fetcher = FakeFetcher({RANKED_WIN_LOSS_URL: [ConnectionResetError(54, "Connection reset by peer"), {"win": 7, "lose": 3}]})
+        self.assertEqual(self.make_client(fetcher).get_ranked_win_loss(123), (7, 3))
+
+    def test_retries_after_incomplete_body(self):
+        fetcher = FakeFetcher({RANKED_WIN_LOSS_URL: [IncompleteRead(b"{"), {"win": 7, "lose": 3}]})
         self.assertEqual(self.make_client(fetcher).get_ranked_win_loss(123), (7, 3))
 
     def test_gives_up_after_too_many_failures(self):

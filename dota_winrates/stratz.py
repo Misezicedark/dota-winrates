@@ -4,6 +4,7 @@ import json
 import time
 import urllib.error
 from collections.abc import Iterable, Mapping
+from http.client import HTTPException
 from pathlib import Path
 
 from . import http
@@ -137,8 +138,9 @@ class StratzClient:
                 failure = f"HTTP {error.code}"
                 if error.code == TOO_MANY_REQUESTS:
                     wait_seconds = RATE_LIMIT_WAIT_SECONDS
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
-                failure = str(error)
+            # Errors raised while reading the response are not wrapped in URLError (see opendota.py).
+            except (urllib.error.URLError, OSError, HTTPException, json.JSONDecodeError) as error:
+                failure = str(error) or type(error).__name__
             else:
                 if body.get("errors"):
                     raise StratzError(f"Stratz: {body['errors'][0].get('message', 'query failed')}")
