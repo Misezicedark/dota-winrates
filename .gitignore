@@ -14,3 +14,6 @@ __pycache__/
 *.pyc
 .venv/
 *.egg-info/
+
+# Old single-file script, kept locally for reference
+legacy/
