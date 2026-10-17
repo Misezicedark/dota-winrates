@@ -212,7 +212,8 @@ class ThresholdTest(unittest.TestCase):
         self.assertTrue(is_too_close(-0.99, 1.0))
 
     def test_floating_point_noise_at_the_threshold_is_kept(self):
-        self.assertFalse(is_too_close((0.51 - 0.50) * 100, 1.0))
+        # (0.572 - 0.562) * 100 is 0.9999999999999898 in floating point: a true 1.0 pp difference.
+        self.assertFalse(is_too_close((0.572 - 0.562) * 100, 1.0))
 
     def test_zero_threshold_keeps_everything(self):
         self.assertFalse(is_too_close(0.0, 0.0))
