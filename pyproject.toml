@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dota-winrates"
+version = "0.1.0"
+description = "How often your team had the higher average winrate in your solo ranked Dota 2 matches"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+excel = ["openpyxl>=3.1"]
+
+[project.scripts]
+dota-winrates = "dota_winrates.cli:main"
+
+[tool.setuptools]
+packages = ["dota_winrates"]
